@@ -1,8 +1,8 @@
 [package]
 name = "ntex-mqtt"
-version = "0.6.9"
+version = "0.6.10"
 authors = ["ntex contributors <team@ntex.rs>"]
-description = "MQTT Client/Server framework for v5 and v3.1.1 protocols"
+description = "MQTT Client/Server framework for v5 and v3.1.1,v3.1 protocols"
 documentation = "https://docs.rs/ntex-mqtt"
 repository = "https://github.com/ntex-rs/ntex-mqtt.git"
 categories = ["network-programming"]
@@ -12,7 +12,7 @@ exclude = [".gitignore", ".travis.yml", ".cargo/config"]
 edition = "2018"
 
 [dependencies]
-ntex = "0.3.15"
+ntex = { git = "https://github.com/rmqtt-rs/ntex.git", version = "0.3.16" }
 bitflags = "1.2.1"
 derive_more = "0.99"
 log = "0.4"
@@ -30,5 +30,4 @@ rustls = "0.19"
 tokio-rustls = "0.22"
 openssl = "0.10"
 tokio-openssl = "0.6"
-
-ntex = { version = "0.3", features = ["rustls", "openssl"] }
+ntex = { git = "https://github.com/rmqtt-rs/ntex.git", version = "0.3.16", features = ["rustls", "openssl"]}
