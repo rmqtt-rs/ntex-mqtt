@@ -9,17 +9,20 @@ pub struct Handshake<Io> {
     io: Io,
     pkt: mqtt::Connect,
     shared: Rc<MqttShared>,
+    handshakings: isize,
 }
 
 impl<Io> Handshake<Io> {
-    pub(crate) fn new(pkt: mqtt::Connect, io: Io, shared: Rc<MqttShared>) -> Self {
-        Self { pkt, io, shared }
+    pub(crate) fn new(pkt: mqtt::Connect, io: Io, shared: Rc<MqttShared>, handshakings: isize) -> Self {
+        Self { pkt, io, shared, handshakings}
     }
 
+    #[inline]
     pub fn packet(&self) -> &mqtt::Connect {
         &self.pkt
     }
 
+    #[inline]
     pub fn packet_mut(&mut self) -> &mut mqtt::Connect {
         &mut self.pkt
     }
@@ -30,11 +33,18 @@ impl<Io> Handshake<Io> {
     }
 
     /// Returns mqtt server sink
+    #[inline]
     pub fn sink(&self) -> MqttSink {
         MqttSink::new(self.shared.clone())
     }
 
+    #[inline]
+    pub fn handshakings(&self) -> isize{
+        self.handshakings
+    }
+
     /// Ack handshake message and set state
+    #[inline]
     pub fn ack<St>(self, st: St, session_present: bool) -> HandshakeAck<Io, St> {
         HandshakeAck {
             session_present,
@@ -50,6 +60,7 @@ impl<Io> Handshake<Io> {
     }
 
     /// Create connect ack object with `identifier rejected` return code
+    #[inline]
     pub fn identifier_rejected<St>(self) -> HandshakeAck<Io, St> {
         HandshakeAck {
             io: self.io,
@@ -65,6 +76,7 @@ impl<Io> Handshake<Io> {
     }
 
     /// Create connect ack object with `bad user name or password` return code
+    #[inline]
     pub fn bad_username_or_pwd<St>(self) -> HandshakeAck<Io, St> {
         HandshakeAck {
             io: self.io,
@@ -80,6 +92,7 @@ impl<Io> Handshake<Io> {
     }
 
     /// Create connect ack object with `not authorized` return code
+    #[inline]
     pub fn not_authorized<St>(self) -> HandshakeAck<Io, St> {
         HandshakeAck {
             io: self.io,
@@ -95,6 +108,7 @@ impl<Io> Handshake<Io> {
     }
 
     /// Create connect ack object with `service unavailable` return code
+    #[inline]
     pub fn service_unavailable<St>(self) -> HandshakeAck<Io, St> {
         HandshakeAck {
             io: self.io,

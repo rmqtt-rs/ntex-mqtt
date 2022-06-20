@@ -433,3 +433,21 @@ impl<Io, Err, InitErr> Service for DefaultProtocolServer<Io, Err, InitErr> {
         ))))
     }
 }
+
+use std::sync::Arc;
+use std::sync::atomic::{AtomicIsize, Ordering};
+lazy_static::lazy_static!(
+    pub static ref HANDSHAKINGS: Arc<AtomicIsize> = Arc::new(AtomicIsize::new(0));
+);
+
+#[inline]
+pub fn handshakings() -> isize {
+    HANDSHAKINGS.load(Ordering::SeqCst)
+}
+
+#[inline]
+pub fn handshakings_add(v: isize) -> isize {
+    HANDSHAKINGS.fetch_add(v, Ordering::SeqCst)
+}
+
+

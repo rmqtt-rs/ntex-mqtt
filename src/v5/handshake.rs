@@ -10,6 +10,7 @@ pub struct Handshake<Io> {
     max_size: u32,
     max_receive: u16,
     max_topic_alias: u16,
+    handshakings: isize,
 }
 
 impl<Io> Handshake<Io> {
@@ -20,14 +21,17 @@ impl<Io> Handshake<Io> {
         max_size: u32,
         max_receive: u16,
         max_topic_alias: u16,
+        handshakings: isize,
     ) -> Self {
-        Self { pkt, io, shared, max_size, max_receive, max_topic_alias }
+        Self { pkt, io, shared, max_size, max_receive, max_topic_alias, handshakings}
     }
 
+    #[inline]
     pub fn packet(&self) -> &codec::Connect {
         &self.pkt
     }
 
+    #[inline]
     pub fn packet_mut(&mut self) -> &mut codec::Connect {
         &mut self.pkt
     }
@@ -38,11 +42,18 @@ impl<Io> Handshake<Io> {
     }
 
     /// Returns mqtt server sink
+    #[inline]
     pub fn sink(&self) -> MqttSink {
         MqttSink::new(self.shared.clone())
     }
 
+    #[inline]
+    pub fn handshakings(&self) -> isize{
+        self.handshakings
+    }
+
     /// Ack handshake message and set state
+    #[inline]
     pub fn ack<St>(self, st: St) -> HandshakeAck<Io, St> {
         let mut packet = codec::ConnectAck {
             reason_code: codec::ConnectAckReason::Success,
@@ -69,6 +80,7 @@ impl<Io> Handshake<Io> {
     }
 
     /// Create handshake ack object with error
+    #[inline]
     pub fn failed<St>(self, reason_code: codec::ConnectAckReason) -> HandshakeAck<Io, St> {
         HandshakeAck {
             io: self.io,
@@ -83,6 +95,7 @@ impl<Io> Handshake<Io> {
     }
 
     /// Create handshake ack object with provided ConnectAck packet
+    #[inline]
     pub fn fail_with<St>(self, ack: codec::ConnectAck) -> HandshakeAck<Io, St> {
         HandshakeAck {
             io: self.io,

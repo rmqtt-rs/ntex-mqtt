@@ -9,6 +9,7 @@ use ntex::util::timeout::{Timeout, TimeoutError};
 use crate::error::{MqttError, ProtocolError};
 use crate::service::{FactoryBuilder, FactoryBuilder2};
 use crate::types::QoS;
+use crate::server::handshakings_add;
 
 use super::codec as mqtt;
 use super::control::{ControlMessage, ControlResult};
@@ -337,6 +338,7 @@ where
                 let pool = pool.clone();
                 let service = Rc::new(service.map_err(MqttError::Service));
                 Ok::<_, C::InitError>(ntex::apply_fn(service, move |io: Io, service| {
+                    let handshakings = handshakings_add(1);
                     handshake(
                         io,
                         None,
@@ -345,15 +347,21 @@ where
                         max_receive,
                         max_topic_alias,
                         max_qos,
+                        handshakings,
                         pool.clone(),
                     )
                 }))
             }
         }),
     )
-    .map_err(|e| match e {
+    .map_err(|e| {
+        handshakings_add(-1);
+        match e {
         TimeoutError::Service(e) => e,
         TimeoutError::Timeout => MqttError::HandshakeTimeout,
+    }}).map(|h|{
+        handshakings_add(-1);
+        h
     })
 }
 
@@ -387,6 +395,7 @@ where
                 let pool = pool.clone();
                 let service = Rc::new(service.map_err(MqttError::Service));
                 Ok::<_, C::InitError>(ntex::apply_fn(service, move |(io, state), service| {
+                    let handshakings = handshakings_add(1);
                     handshake(
                         io,
                         Some(state),
@@ -395,15 +404,21 @@ where
                         max_receive,
                         max_topic_alias,
                         max_qos,
+                        handshakings,
                         pool.clone(),
                     )
                 }))
             }
         }),
     )
-    .map_err(|e| match e {
+    .map_err(|e| {
+        handshakings_add(-1);
+        match e {
         TimeoutError::Service(e) => e,
         TimeoutError::Timeout => MqttError::HandshakeTimeout,
+    }}).map(|h|{
+        handshakings_add(-1);
+        h
     })
 }
 
@@ -416,6 +431,7 @@ async fn handshake<Io, S, St, E>(
     mut max_receive: u16,
     mut max_topic_alias: u16,
     max_qos: Option<QoS>,
+    handshakings: isize,
     pool: Rc<MqttSinkPool>,
 ) -> Result<(Io, State, Rc<MqttShared>, Session<St>, u16), S::Error>
 where
@@ -464,6 +480,7 @@ where
                     max_size,
                     max_receive,
                     max_topic_alias,
+                    handshakings,
                 ))
                 .await?;
 

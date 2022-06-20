@@ -8,6 +8,7 @@ use ntex::util::{timeout::Timeout, timeout::TimeoutError, Either, Ready};
 use crate::error::{MqttError, ProtocolError};
 use crate::io::{DispatchItem, State};
 use crate::service::{FactoryBuilder, FactoryBuilder2};
+use crate::server::handshakings_add;
 
 use super::codec as mqtt;
 use super::control::{ControlMessage, ControlResult};
@@ -325,14 +326,20 @@ where
                 let pool = pool.clone();
                 let service = Rc::new(service.map_err(MqttError::Service));
                 Ok::<_, C::InitError>(ntex::apply_fn(service, move |conn: Io, service| {
-                    handshake(conn, None, service.clone(), max_size, pool.clone())
+                    let handshakings = handshakings_add(1);
+                    handshake(conn, None, service.clone(), max_size, handshakings, pool.clone())
                 }))
             }
         }),
     )
-    .map_err(|e| match e {
+    .map_err(|e| {
+        handshakings_add(-1);
+        match e {
         TimeoutError::Service(e) => e,
         TimeoutError::Timeout => MqttError::HandshakeTimeout,
+    }}).map(|h|{
+        handshakings_add(-1);
+        h
     })
 }
 
@@ -363,14 +370,20 @@ where
                 let pool = pool.clone();
                 let service = Rc::new(service.map_err(MqttError::Service));
                 Ok(ntex::apply_fn(service, move |(io, state), service| {
-                    handshake(io, Some(state), service.clone(), max_size, pool.clone())
+                    let handshakings = handshakings_add(1);
+                    handshake(io, Some(state), service.clone(), max_size, handshakings, pool.clone())
                 }))
             }
         }),
     )
-    .map_err(|e| match e {
+    .map_err(|e| {
+        handshakings_add(-1);
+        match e {
         TimeoutError::Service(e) => e,
         TimeoutError::Timeout => MqttError::HandshakeTimeout,
+    }}).map(|h|{
+        handshakings_add(-1);
+        h
     })
 }
 
@@ -379,6 +392,7 @@ async fn handshake<Io, S, St, E>(
     state: Option<State>,
     service: S,
     max_size: u32,
+    handshakings: isize,
     pool: Rc<MqttSinkPool>,
 ) -> Result<(Io, State, Rc<MqttShared>, Session<St>, u16), S::Error>
 where
@@ -386,7 +400,6 @@ where
     S: Service<Request = Handshake<Io>, Response = HandshakeAck<Io, St>, Error = MqttError<E>>,
 {
     log::trace!("Starting mqtt handshake");
-
     let state = state.unwrap_or_else(State::new);
     let shared = Rc::new(MqttShared::new(
         state.clone(),
@@ -413,7 +426,7 @@ where
     match packet {
         mqtt::Packet::Connect(connect) => {
             // authenticate mqtt connection
-            let mut ack = service.call(Handshake::new(connect, io, shared)).await?;
+            let mut ack = service.call(Handshake::new(connect, io, shared, handshakings)).await?;
 
             match ack.session {
                 Some(session) => {
