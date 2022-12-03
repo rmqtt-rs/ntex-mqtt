@@ -108,14 +108,14 @@ pub(crate) struct FixedHeader {
     pub(crate) remaining_length: u32,
 }
 
-use linked_hash_map::LinkedHashMap;
+use dequemap::DequeMap;
 use std::num::NonZeroU16;
 use std::time::Duration;
 type TimestampMillis = i64;
 
 #[derive(Default)]
 pub(crate) struct AwaitingRelSet {
-    pub rels: LinkedHashMap<NonZeroU16, TimestampMillis, ahash::RandomState>,
+    pub rels: DequeMap<NonZeroU16, TimestampMillis>,
     pub max_awaiting: usize,
     pub await_timeout: TimestampMillis,
 }
@@ -124,7 +124,7 @@ impl AwaitingRelSet {
     #[inline]
     pub(crate) fn new(max_awaiting: usize, await_timeout: Duration) -> Self {
         Self {
-            rels: LinkedHashMap::default(),
+            rels: DequeMap::default(),
             max_awaiting,
             await_timeout: await_timeout.as_millis() as TimestampMillis,
         }
