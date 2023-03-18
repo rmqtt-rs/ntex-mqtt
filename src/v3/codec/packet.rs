@@ -42,7 +42,7 @@ impl ConnectAckReason {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 /// Connection Will
 pub struct LastWill {
     /// the QoS level to be used when publishing the Will Message.
@@ -55,7 +55,7 @@ pub struct LastWill {
     pub message: Bytes,
 }
 
-#[derive(Default, Debug, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 /// Connect packet content
 pub struct Connect {
     /// mqtt protocol version
@@ -85,7 +85,7 @@ impl Connect {
     }
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 /// Publish message
 pub struct Publish {
     /// this might be re-delivery of an earlier attempt to send the Packet.
@@ -114,14 +114,14 @@ impl fmt::Debug for Publish {
     }
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 /// Subscribe Return Code
 pub enum SubscribeReturnCode {
     Success(QoS),
     Failure,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 /// MQTT Control Packets
 pub enum Packet {
     /// Client request to connect to Server
