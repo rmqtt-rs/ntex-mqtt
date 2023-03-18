@@ -25,13 +25,16 @@ ahash = "0.7.2"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 lazy_static = "1.4.0"
 
+
+
 [dev-dependencies]
+tokio-tungstenite = { version = "0.18" }
 env_logger = "0.8"
 futures = "0.3"
 rustls = "0.19"
 tokio-rustls = "0.22"
-openssl = "0.10"
-tokio-openssl = "0.6"
+#openssl = "0.10"
+#tokio-openssl = "0.6"
 ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.3.17", features = ["rustls"] }
 #ntex = { git = "https://github.com/rmqtt/ntex.git", version = "0.3.16", features = ["rustls", "openssl"]}
 #ntex = { path = "../ntex/ntex" }

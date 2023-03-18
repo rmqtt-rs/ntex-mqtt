@@ -1,8 +1,8 @@
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, marker, time};
 
-use ntex::pipeline_factory;
 use ntex::rt::net::TcpStream;
 use ntex::server::rustls::Acceptor;
+use ntex::{fn_factory_with_config, fn_service, pipeline_factory, ServiceFactory};
 use ntex_mqtt::{v3, v5, MqttError, MqttServer};
 use rustls::internal::pemfile::{certs, rsa_private_keys};
 use rustls::{NoClientAuth, ServerConfig};
@@ -28,6 +28,14 @@ impl std::convert::TryFrom<ServerError> for v5::PublishAck {
     }
 }
 
+impl std::convert::TryFrom<ServerError> for v5::PublishResult {
+    type Error = ServerError;
+    #[inline]
+    fn try_from(e: ServerError) -> Result<Self, Self::Error> {
+        Err(e)
+    }
+}
+
 async fn handshake_v3(
     handshake: v3::Handshake<TlsStream<TcpStream>>,
 ) -> Result<v3::HandshakeAck<TlsStream<TcpStream>, Session>, ServerError> {
@@ -35,8 +43,9 @@ async fn handshake_v3(
     Ok(handshake.ack(Session, false))
 }
 
-async fn publish_v3(publish: v3::Publish) -> Result<(), ServerError> {
-    log::info!("incoming publish: {:?} -> {:?}", publish.id(), publish.topic());
+//pub async fn publish(state: v3::Session<SessionState>, pub_msg: v3::PublishMessage) -> Result<(), MqttError> {
+async fn publish_v3(publish: v3::PublishMessage) -> Result<(), ServerError> {
+    log::info!("incoming publish: {:?}", publish);
     Ok(())
 }
 
@@ -47,8 +56,8 @@ async fn handshake_v5(
     Ok(handshake.ack(Session))
 }
 
-async fn publish_v5(publish: v5::Publish) -> Result<v5::PublishAck, ServerError> {
-    log::info!("incoming publish: {:?} -> {:?}", publish.id(), publish.topic());
+async fn publish_v5(publish: v5::PublishMessage) -> Result<v5::PublishResult, ServerError> {
+    log::info!("incoming publish: {:?}", publish);
     Ok(publish.ack())
 }
 
@@ -74,7 +83,7 @@ async fn main() -> std::io::Result<()> {
     ntex::server::Server::build()
         .bind("mqtt", "127.0.0.1:8883", move || {
             pipeline_factory(tls_acceptor.clone())
-                .map_err(|_err| MqttError::Service(ServerError {}))
+                .map_err(|_err| MqttError::Service(ServerError {})) //ntex_mqtt::MqttError::Service(MqttError::from(e))
                 .and_then(
                     MqttServer::new()
                         .v3(v3::MqttServer::new(handshake_v3).publish(publish_v3))
