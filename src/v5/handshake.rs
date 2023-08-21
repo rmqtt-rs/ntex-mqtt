@@ -135,9 +135,9 @@ impl<Io, St> HandshakeAck<Io, St> {
     ///
     /// By default idle keep-alive is set to 30 seconds. Panics if timeout is `0`.
     pub fn keep_alive(mut self, timeout: u16) -> Self {
-        if timeout == 0 {
-            panic!("Timeout must be greater than 0")
-        }
+        //if timeout == 0 {
+        //    panic!("Timeout must be greater than 0")
+        //}
         self.keepalive = timeout;
         self
     }
