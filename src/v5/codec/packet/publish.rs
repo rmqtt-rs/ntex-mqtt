@@ -165,8 +165,8 @@ impl EncodeLtd for PublishProperties {
             + encoded_property_size(&self.is_utf8_payload)
             + encoded_property_size(&self.response_topic)
             + self.subscription_ids.as_ref().map_or(0, |v| {
-                v.iter().fold(0, |acc, id| acc + 1 + var_int_len(id.get() as usize) as usize)
-            })
+            v.iter().fold(0, |acc, id| acc + 1 + var_int_len(id.get() as usize) as usize)
+        })
             + self.user_properties.encoded_size();
         prop_len + var_int_len(prop_len) as usize
     }
@@ -183,7 +183,7 @@ impl EncodeLtd for PublishProperties {
         if let Some(sub_ids) = self.subscription_ids.as_ref() {
             for sub_id in sub_ids.iter() {
                 buf.put_u8(pt::SUB_ID);
-                sub_id.encode(buf)?;
+                utils::write_variable_length(sub_id.get(), buf);
             }
         }
         self.user_properties.encode(buf)
