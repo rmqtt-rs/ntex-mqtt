@@ -1,6 +1,5 @@
 use std::cell::{Cell, RefCell};
 use std::task::{Context, Poll};
-use std::time::Duration;
 use std::{convert::TryFrom, future::Future, marker, num, num::NonZeroU16, pin::Pin, rc::Rc};
 
 use ntex::service::{fn_factory_with_config, Service, ServiceFactory};
@@ -8,7 +7,6 @@ use ntex::util::{join, Either, HashSet, Ready};
 
 use crate::error::{MqttError, ProtocolError};
 use crate::io::DispatchItem;
-use crate::types::AwaitingRelSet;
 
 use super::control::{self, ControlMessage, ControlResult};
 use super::publish::{Publish, PublishMessage, PublishResult};
@@ -20,8 +18,6 @@ use super::{codec, Session};
 pub(super) fn factory<St, T, C, E>(
     publish: T,
     control: C,
-    max_awaiting_rel: usize,
-    await_rel_timeout: Duration,
 ) -> impl ServiceFactory<
     Config = Session<St>,
     Request = DispatchItem<Rc<MqttShared>>,
@@ -51,7 +47,7 @@ where
         // create services
         let fut = join(publish.new_service(cfg.clone()), control.new_service(cfg.clone()));
 
-        let (max_receive, max_topic_alias) = cfg.params();
+        let (max_receive, _max_topic_alias) = cfg.params();
 
         async move {
             let (publish, control) = fut.await;
@@ -59,11 +55,9 @@ where
             Ok(Dispatcher::<_, _, E, T::Error>::new(
                 cfg.sink().clone(),
                 max_receive as usize,
-                max_topic_alias,
+                //max_topic_alias,
                 publish?,
                 control?,
-                max_awaiting_rel,
-                await_rel_timeout,
             ))
         }
     })
@@ -75,7 +69,6 @@ pub(crate) struct Dispatcher<T, C, E, E2> {
     publish: T,
     shutdown: Cell<bool>,
     max_receive: usize,
-    max_topic_alias: u16,
     inner: Rc<Inner<C>>,
     _t: marker::PhantomData<(E, E2)>,
 }
@@ -84,12 +77,11 @@ struct Inner<C> {
     control: C,
     sink: MqttSink,
     info: RefCell<PublishInfo>,
-    awaiting_rels: RefCell<AwaitingRelSet>,
 }
 
 struct PublishInfo {
     inflight: HashSet<num::NonZeroU16>,
-    aliases: HashSet<num::NonZeroU16>,
+    //aliases: HashSet<num::NonZeroU16>,
 }
 
 impl<T, C, E, E2> Dispatcher<T, C, E, E2>
@@ -101,29 +93,21 @@ where
     fn new(
         sink: MqttSink,
         max_receive: usize,
-        max_topic_alias: u16,
         publish: T,
         control: C,
-        max_awaiting_rel: usize,
-        await_rel_timeout: Duration,
     ) -> Self {
         Self {
             publish,
             max_receive,
-            max_topic_alias,
             sink: sink.clone(),
             shutdown: Cell::new(false),
             inner: Rc::new(Inner {
                 control,
                 sink,
                 info: RefCell::new(PublishInfo {
-                    aliases: HashSet::default(),
+                    //aliases: HashSet::default(),
                     inflight: HashSet::default(),
                 }),
-                awaiting_rels: RefCell::new(AwaitingRelSet::new(
-                    max_awaiting_rel,
-                    await_rel_timeout,
-                )),
             }),
             _t: marker::PhantomData,
         }
@@ -182,7 +166,7 @@ where
                     if let Some(pid) = packet_id {
                         // check for receive maximum
                         if self.max_receive != 0 && info.inflight.len() >= self.max_receive {
-                            log::trace!(
+                            log::warn!(
                                 "Receive maximum exceeded: max: {} inflight: {}",
                                 self.max_receive,
                                 info.inflight.len()
@@ -197,62 +181,25 @@ where
 
                         // check for duplicated packet id
                         if !info.inflight.insert(pid) {
-                            let _ =
-                                self.sink.send(codec::Packet::PublishAck(codec::PublishAck {
-                                    packet_id: pid,
-                                    reason_code: codec::PublishAckReason::PacketIdentifierInUse,
-                                    ..Default::default()
-                                }));
+                            log::warn!("Packet identifier is in use, packet id is {:?}", pid);
+                            let ack = codec::PublishAck {
+                                packet_id: pid,
+                                reason_code: codec::PublishAckReason::PacketIdentifierInUse,
+                                ..Default::default()
+                            };
+                            match qos {
+                                codec::QoS::AtLeastOnce => {
+                                    let _ = self.sink.send(codec::Packet::PublishAck(ack));
+                                }
+                                codec::QoS::ExactlyOnce => {
+                                    let _ = self.sink.send(codec::Packet::PublishReceived(ack));
+                                }
+                                _ => {},
+                            }
                             return Either::Right(Either::Left(Ready::Ok(None)));
                         }
-
-                        //qos == 2
-                        if codec::QoS::ExactlyOnce == qos {
-                            let mut awaiting_rels = inner.awaiting_rels.borrow_mut();
-                            if awaiting_rels.contains(&pid) {
-                                log::warn!(
-                                    "Duplicated sending of QoS2 message, packet id is {:?}",
-                                    pid
-                                );
-                                return Either::Right(Either::Left(Ready::Ok(None)));
-                            }
-                            //Remove the timeout awating release QoS2 messages, if it exists
-                            awaiting_rels.remove_timeouts();
-                            if awaiting_rels.is_full() {
-                                // Too many awating release QoS2 messages, the earliest ones will be removed
-                                if let Some(packet_id) = awaiting_rels.pop() {
-                                    log::warn!("Too many awating release QoS2 messages, remove the earliest, packet id is {}", packet_id);
-                                }
-                            }
-                            //Stored message identifier
-                            awaiting_rels.push(pid)
-                        }
                     }
 
-                    // handle topic aliases
-                    if let Some(alias) = publish.properties.topic_alias {
-                        // check existing topic
-                        if publish.topic.is_empty() {
-                            if !info.aliases.contains(&alias) {
-                                return Either::Right(Either::Right(ControlResponse::new(
-                                    ControlMessage::proto_error(
-                                        ProtocolError::UnknownTopicAlias,
-                                    ),
-                                    &self.inner,
-                                )));
-                            }
-                        } else {
-                            if alias.get() > self.max_topic_alias {
-                                return Either::Right(Either::Right(ControlResponse::new(
-                                    ControlMessage::proto_error(ProtocolError::MaxTopicAlias),
-                                    &self.inner,
-                                )));
-                            }
-
-                            // record new alias
-                            info.aliases.insert(alias);
-                        }
-                    }
                 }
 
                 Either::Left(PublishResponse {
@@ -285,7 +232,7 @@ where
             }
 
             DispatchItem::Item(codec::Packet::PublishRelease(ack2)) => {
-                self.inner.awaiting_rels.borrow_mut().remove(&ack2.packet_id);
+                self.inner.info.borrow_mut().inflight.remove(&ack2.packet_id);
                 Either::Right(Either::Left(Ready::Ok(Some(codec::Packet::PublishComplete(
                     ack2, //@TODO ...
                 )))))
@@ -468,7 +415,6 @@ where
                 };
 
                 if let Some(id) = num::NonZeroU16::new(*packet_id) {
-                    this.inner.info.borrow_mut().inflight.remove(&id);
                     if let PublishResult::PublishAck(ack) = ack {
                         let ack = codec::PublishAck {
                             packet_id: id,
@@ -478,6 +424,7 @@ where
                         };
                         match qos {
                             codec::QoS::AtLeastOnce => {
+                                this.inner.info.borrow_mut().inflight.remove(&id);
                                 Poll::Ready(Ok(Some(codec::Packet::PublishAck(ack))))
                             }
                             codec::QoS::ExactlyOnce => {
@@ -500,7 +447,9 @@ where
                 };
                 Poll::Ready(Ok(None))
             }
-            PublishResponseStateProject::Control { fut } => fut.poll(cx),
+            PublishResponseStateProject::Control { fut } => {
+                fut.poll(cx)
+            },
             PublishResponseStateProject::Release { packet_id, fut } => {
                 let _ = match fut.poll(cx) {
                     Poll::Ready(result) => result,

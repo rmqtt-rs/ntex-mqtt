@@ -29,8 +29,6 @@ pub struct MqttServer<Io, St, C: ServiceFactory, Cn: ServiceFactory, P: ServiceF
     inflight: usize,
     handshake_timeout: u16,
     disconnect_timeout: u16,
-    max_awaiting_rel: usize,
-    await_rel_timeout: Duration,
     pool: Rc<MqttSinkPool>,
     _t: PhantomData<(Io, St)>,
 }
@@ -62,8 +60,6 @@ where
             inflight: 16,
             handshake_timeout: 0,
             disconnect_timeout: 3000,
-            max_awaiting_rel: 0,
-            await_rel_timeout: Duration::default(),
             pool: Default::default(),
             _t: PhantomData,
         }
@@ -124,18 +120,6 @@ where
         self
     }
 
-    ///
-    pub fn max_awaiting_rel(mut self, val: usize) -> Self {
-        self.max_awaiting_rel = val;
-        self
-    }
-
-    ///
-    pub fn await_rel_timeout(mut self, val: Duration) -> Self {
-        self.await_rel_timeout = val;
-        self
-    }
-
     /// Service to handle control packets
     ///
     /// All control packets are processed sequentially, max buffered
@@ -158,8 +142,6 @@ where
             inflight: self.inflight,
             handshake_timeout: self.handshake_timeout,
             disconnect_timeout: self.disconnect_timeout,
-            max_awaiting_rel: self.max_awaiting_rel,
-            await_rel_timeout: self.await_rel_timeout,
             pool: self.pool,
             _t: PhantomData,
         }
@@ -181,8 +163,6 @@ where
             inflight: self.inflight,
             handshake_timeout: self.handshake_timeout,
             disconnect_timeout: self.disconnect_timeout,
-            max_awaiting_rel: self.max_awaiting_rel,
-            await_rel_timeout: self.await_rel_timeout,
             pool: self.pool,
             _t: PhantomData,
         }
@@ -217,8 +197,6 @@ where
                     publish,
                     control,
                     self.inflight,
-                    self.max_awaiting_rel,
-                    self.await_rel_timeout,
                 ),
                 |req: DispatchItem<Rc<MqttShared>>, srv| match req {
                     DispatchItem::Item(req) => Either::Left(srv.call(req)),
@@ -275,8 +253,6 @@ where
                     publish,
                     control,
                     self.inflight,
-                    self.max_awaiting_rel,
-                    self.await_rel_timeout,
                 ),
                 |req: DispatchItem<Rc<MqttShared>>, srv| match req {
                     DispatchItem::Item(req) => Either::Left(srv.call(req)),

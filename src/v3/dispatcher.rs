@@ -1,6 +1,5 @@
 use std::cell::{Cell, RefCell};
 use std::task::{Context, Poll};
-use std::time::Duration;
 use std::{future::Future, marker::PhantomData, num::NonZeroU16, pin::Pin, rc::Rc};
 
 use ntex::service::{fn_factory_with_config, Service, ServiceFactory};
@@ -17,15 +16,12 @@ use super::{
     Session,
 };
 use crate::error::MqttError;
-use crate::types::AwaitingRelSet;
 
 /// mqtt3 protocol dispatcher
 pub(super) fn factory<St, T, C, E>(
     publish: T,
     control: C,
     inflight: usize,
-    max_awaiting_rel: usize,
-    await_rel_timeout: Duration,
 ) -> impl ServiceFactory<
     Config = Session<St>,
     Request = codec::Packet,
@@ -66,8 +62,6 @@ where
                         cfg,
                         publish?,
                         control?,
-                        max_awaiting_rel,
-                        await_rel_timeout,
                     ),
                 ),
             )
@@ -87,7 +81,6 @@ pub(crate) struct Dispatcher<St, T: Service<Error = MqttError<E>>, C, E> {
 struct Inner {
     sink: MqttSink,
     inflight: RefCell<HashSet<NonZeroU16>>,
-    awaiting_rels: RefCell<AwaitingRelSet>,
 }
 
 impl<St, T, C, E> Dispatcher<St, T, C, E>
@@ -99,8 +92,6 @@ where
         session: Session<St>,
         publish: T,
         control: C,
-        max_awaiting_rel: usize,
-        await_rel_timeout: Duration,
     ) -> Self {
         let sink = session.sink().clone();
         Self {
@@ -111,10 +102,6 @@ where
             inner: Rc::new(Inner {
                 sink,
                 inflight: RefCell::new(HashSet::default()),
-                awaiting_rels: RefCell::new(AwaitingRelSet::new(
-                    max_awaiting_rel,
-                    await_rel_timeout,
-                )),
             }),
         }
     }
@@ -169,32 +156,10 @@ where
                 if let Some(pid) = packet_id {
                     // check for duplicated packet id
                     if !inner.inflight.borrow_mut().insert(pid) {
-                        log::trace!("Duplicated packet id for publish packet: {:?}", pid);
+                        log::warn!("Duplicated packet id for publish packet: {:?}", pid);
                         return Either::Right(Either::Left(Ready::Err(
                             MqttError::V3ProtocolError,
                         )));
-                    }
-
-                    //qos == 2
-                    if codec::QoS::ExactlyOnce == qos {
-                        let mut awaiting_rels = inner.awaiting_rels.borrow_mut();
-                        if awaiting_rels.contains(&pid) {
-                            log::warn!(
-                                "Duplicated sending of QoS2 message, packet id is {:?}",
-                                pid
-                            );
-                            return Either::Right(Either::Left(Ready::Ok(None)));
-                        }
-                        //Remove the timeout awating release QoS2 messages, if it exists
-                        awaiting_rels.remove_timeouts();
-                        if awaiting_rels.is_full() {
-                            // Too many awating release QoS2 messages, the earliest ones will be removed
-                            if let Some(packet_id) = awaiting_rels.pop() {
-                                log::warn!("Too many awating release QoS2 messages, remove the earliest, packet id is {}", packet_id);
-                            }
-                        }
-                        //Stored message identifier
-                        awaiting_rels.push(pid)
                     }
                 }
 
@@ -219,7 +184,7 @@ where
             }
 
             codec::Packet::PublishRelease { packet_id } => {
-                self.inner.awaiting_rels.borrow_mut().remove(&packet_id);
+                self.inner.inflight.borrow_mut().remove(&packet_id);
                 Either::Right(Either::Left(Ready::Ok(Some(codec::Packet::PublishComplete {
                     packet_id,
                 }))))
@@ -309,9 +274,9 @@ where
 
         match this.result {
             PublishResult::PublishAck(Some(packet_id), qos) => {
-                this.inner.inflight.borrow_mut().remove(packet_id);
                 match qos {
                     codec::QoS::AtLeastOnce => {
+                        this.inner.inflight.borrow_mut().remove(packet_id);
                         Poll::Ready(Ok(Some(codec::Packet::PublishAck {
                             packet_id: *packet_id,
                         })))

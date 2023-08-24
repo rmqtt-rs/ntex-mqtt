@@ -32,8 +32,6 @@ pub struct MqttServer<Io, St, C: ServiceFactory, Cn: ServiceFactory, P: ServiceF
     handshake_timeout: u16,
     disconnect_timeout: u16,
     max_topic_alias: u16,
-    max_awaiting_rel: usize,
-    await_rel_timeout: Duration,
     pool: Rc<MqttSinkPool>,
     _t: marker::PhantomData<(Io, St)>,
 }
@@ -67,8 +65,6 @@ where
             handshake_timeout: 0,
             disconnect_timeout: 3000,
             max_topic_alias: 32,
-            max_awaiting_rel: 0,
-            await_rel_timeout: Duration::default(),
             pool: Rc::new(MqttSinkPool::default()),
             _t: marker::PhantomData,
         }
@@ -146,18 +142,6 @@ where
         self
     }
 
-    ///
-    pub fn max_awaiting_rel(mut self, val: usize) -> Self {
-        self.max_awaiting_rel = val;
-        self
-    }
-
-    ///
-    pub fn await_rel_timeout(mut self, val: Duration) -> Self {
-        self.await_rel_timeout = val;
-        self
-    }
-
     /// Service to handle control messages
     pub fn control<F, Srv>(self, service: F) -> MqttServer<Io, St, C, Srv, P>
     where
@@ -179,8 +163,6 @@ where
             max_qos: self.max_qos,
             handshake_timeout: self.handshake_timeout,
             disconnect_timeout: self.disconnect_timeout,
-            max_awaiting_rel: self.max_awaiting_rel,
-            await_rel_timeout: self.await_rel_timeout,
             pool: self.pool,
             _t: marker::PhantomData,
         }
@@ -209,8 +191,6 @@ where
             max_qos: self.max_qos,
             handshake_timeout: self.handshake_timeout,
             disconnect_timeout: self.disconnect_timeout,
-            max_awaiting_rel: self.max_awaiting_rel,
-            await_rel_timeout: self.await_rel_timeout,
             pool: self.pool,
             _t: marker::PhantomData,
         }
@@ -264,8 +244,6 @@ where
             .build(factory(
                 publish,
                 control,
-                self.max_awaiting_rel,
-                self.await_rel_timeout,
             )),
         )
     }
@@ -301,8 +279,6 @@ where
             .build(factory(
                 publish,
                 control,
-                self.max_awaiting_rel,
-                self.await_rel_timeout,
             )),
         )
     }
