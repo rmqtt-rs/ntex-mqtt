@@ -31,7 +31,7 @@ macro_rules! prim_enum {
         }) => {
         $( #[$enum_attr] )*
         #[repr(u8)]
-        #[derive(Debug, Eq, PartialEq, Copy, Clone)]
+        #[derive(Debug, Eq, PartialEq, Copy, Clone, Deserialize, Serialize)]
         pub enum $name {
             $(
                 $( #[$enum_item_attr] )*

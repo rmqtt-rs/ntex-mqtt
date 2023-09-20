@@ -9,7 +9,7 @@ use crate::utils::{self, Decode, Encode};
 use crate::v5::codec::{encode::*, property_type as pt, UserProperties, UserProperty};
 
 /// Represents SUBSCRIBE packet
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Subscribe {
     /// Packet Identifier
     pub packet_id: NonZeroU16,
@@ -20,7 +20,7 @@ pub struct Subscribe {
     pub topic_filters: Vec<(ByteString, SubscriptionOptions)>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct SubscriptionOptions {
     pub qos: QoS,
     pub no_local: bool,
@@ -47,7 +47,7 @@ pub struct SubscribeAck {
 }
 
 /// Represents UNSUBSCRIBE packet
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Unsubscribe {
     /// Packet Identifier
     pub packet_id: NonZeroU16,

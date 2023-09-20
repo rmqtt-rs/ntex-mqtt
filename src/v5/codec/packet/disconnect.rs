@@ -6,7 +6,7 @@ use crate::utils::{self, Decode, Property};
 use crate::v5::codec::{encode::*, property_type as pt, UserProperties, UserProperty};
 
 /// DISCONNECT message
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
 pub struct Disconnect {
     pub reason_code: DisconnectReasonCode,
     pub session_expiry_interval_secs: Option<u32>,

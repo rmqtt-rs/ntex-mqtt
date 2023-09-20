@@ -8,7 +8,7 @@ pub const WILL_QOS_SHIFT: u8 = 3;
 /// Max possible packet size
 pub const MAX_PACKET_SIZE: u32 = 0xF_FF_FF_FF;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Protocol {
     MQTT(u8),
 }
@@ -40,7 +40,6 @@ impl Default for Protocol {
 
 prim_enum! {
     /// Quality of Service
-    #[derive(Serialize, Deserialize)]
     pub enum QoS {
         /// At most once delivery
         ///

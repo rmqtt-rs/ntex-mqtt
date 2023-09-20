@@ -7,7 +7,7 @@ use crate::utils::{self, Decode, Encode, Property};
 use crate::v5::codec::{encode::*, property_type as pt, UserProperties};
 
 /// PUBLISH message
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Publish {
     /// this might be re-delivery of an earlier attempt to send the Packet.
     pub dup: bool,
@@ -35,7 +35,7 @@ impl fmt::Debug for Publish {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PublishProperties {
     pub topic_alias: Option<NonZeroU16>,
     pub correlation_data: Option<Bytes>,
