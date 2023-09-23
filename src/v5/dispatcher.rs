@@ -7,6 +7,7 @@ use ntex::util::{join, Either, HashSet, Ready};
 
 use crate::error::{MqttError, ProtocolError};
 use crate::io::DispatchItem;
+use crate::server::{in_inflights_add, in_inflights_remove};
 
 use super::control::{self, ControlMessage, ControlResult};
 use super::publish::{Publish, PublishMessage, PublishResult};
@@ -112,6 +113,8 @@ where
             _t: marker::PhantomData,
         }
     }
+
+
 }
 
 impl<T, C, E, E2> Service for Dispatcher<T, C, E, E2>
@@ -180,7 +183,8 @@ where
                         }
 
                         // check for duplicated packet id
-                        if !info.inflight.insert(pid) {
+                        //if !info.inflight.insert(pid) {
+                        if !in_inflights_add(&mut info.inflight, pid) {
                             log::warn!("Packet identifier is in use, packet id is {:?}", pid);
                             let ack = codec::PublishAck {
                                 packet_id: pid,
@@ -232,7 +236,8 @@ where
             }
 
             DispatchItem::Item(codec::Packet::PublishRelease(ack2)) => {
-                self.inner.info.borrow_mut().inflight.remove(&ack2.packet_id);
+                //self.inner.info.borrow_mut().inflight.remove(&ack2.packet_id);
+                in_inflights_remove(&mut self.inner.info.borrow_mut().inflight, &ack2.packet_id);
                 Either::Right(Either::Left(Ready::Ok(Some(codec::Packet::PublishComplete(
                     ack2, //@TODO ...
                 )))))
@@ -277,7 +282,8 @@ where
             )),
             DispatchItem::Item(codec::Packet::Subscribe(pkt)) => {
                 // register inflight packet id
-                if !self.inner.info.borrow_mut().inflight.insert(pkt.packet_id) {
+                //if !self.inner.info.borrow_mut().inflight.insert(pkt.packet_id) {
+                if !in_inflights_add(&mut self.inner.info.borrow_mut().inflight, pkt.packet_id) {
                     // duplicated packet id
                     let _ = self.sink.send(codec::Packet::SubscribeAck(codec::SubscribeAck {
                         packet_id: pkt.packet_id,
@@ -299,7 +305,8 @@ where
             }
             DispatchItem::Item(codec::Packet::Unsubscribe(pkt)) => {
                 // register inflight packet id
-                if !self.inner.info.borrow_mut().inflight.insert(pkt.packet_id) {
+                //if !self.inner.info.borrow_mut().inflight.insert(pkt.packet_id) {
+                if !in_inflights_add(&mut self.inner.info.borrow_mut().inflight, pkt.packet_id) {
                     // duplicated packet id
                     let _ =
                         self.sink.send(codec::Packet::UnsubscribeAck(codec::UnsubscribeAck {
@@ -424,7 +431,8 @@ where
                         };
                         match qos {
                             codec::QoS::AtLeastOnce => {
-                                this.inner.info.borrow_mut().inflight.remove(&id);
+                                //this.inner.info.borrow_mut().inflight.remove(&id);
+                                in_inflights_remove(&mut this.inner.info.borrow_mut().inflight, &id);
                                 Poll::Ready(Ok(Some(codec::Packet::PublishAck(ack))))
                             }
                             codec::QoS::ExactlyOnce => {
@@ -526,7 +534,8 @@ where
         let result = match this.fut.poll(cx) {
             Poll::Ready(Ok(result)) => {
                 if let Some(id) = num::NonZeroU16::new(self.packet_id) {
-                    self.inner.info.borrow_mut().inflight.remove(&id);
+                    //self.inner.info.borrow_mut().inflight.remove(&id);
+                    in_inflights_remove(&mut self.inner.info.borrow_mut().inflight, &id);
                 }
                 result
             }

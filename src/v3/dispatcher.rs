@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::task::{Context, Poll};
 use std::{future::Future, marker::PhantomData, num::NonZeroU16, pin::Pin, rc::Rc};
+use std::ops::DerefMut;
 
 use ntex::service::{fn_factory_with_config, Service, ServiceFactory};
 use ntex::util::{inflight::InFlightService, join, Either, HashSet, Ready};
@@ -16,6 +17,7 @@ use super::{
     Session,
 };
 use crate::error::MqttError;
+use crate::server::{in_inflights_add, in_inflights_remove};
 
 /// mqtt3 protocol dispatcher
 pub(super) fn factory<St, T, C, E>(
@@ -105,6 +107,8 @@ where
             }),
         }
     }
+
+
 }
 
 impl<St, T, C, E> Service for Dispatcher<St, T, C, E>
@@ -155,7 +159,8 @@ where
 
                 if let Some(pid) = packet_id {
                     // check for duplicated packet id
-                    if !inner.inflight.borrow_mut().insert(pid) {
+                    //if !inner.inflight.borrow_mut().insert(pid) {
+                    if !in_inflights_add(inner.inflight.borrow_mut().deref_mut(), pid) {
                         log::warn!("Duplicated packet id for publish packet: {:?}", pid);
                         return Either::Right(Either::Left(Ready::Err(
                             MqttError::V3ProtocolError,
@@ -184,7 +189,8 @@ where
             }
 
             codec::Packet::PublishRelease { packet_id } => {
-                self.inner.inflight.borrow_mut().remove(&packet_id);
+                //self.inner.inflight.borrow_mut().remove(&packet_id);
+                in_inflights_remove(self.inner.inflight.borrow_mut().deref_mut(), &packet_id);
                 Either::Right(Either::Left(Ready::Ok(Some(codec::Packet::PublishComplete {
                     packet_id,
                 }))))
@@ -213,7 +219,8 @@ where
                 &self.inner,
             ))),
             codec::Packet::Subscribe { packet_id, topic_filters } => {
-                if !self.inner.inflight.borrow_mut().insert(packet_id) {
+                //if !self.inner.inflight.borrow_mut().insert(packet_id) {
+                if !in_inflights_add(self.inner.inflight.borrow_mut().deref_mut(), packet_id) {
                     log::trace!("Duplicated packet id for unsubscribe packet: {:?}", packet_id);
                     return Either::Right(Either::Left(Ready::Err(MqttError::V3ProtocolError)));
                 }
@@ -227,7 +234,8 @@ where
                 )))
             }
             codec::Packet::Unsubscribe { packet_id, topic_filters } => {
-                if !self.inner.inflight.borrow_mut().insert(packet_id) {
+                //if !self.inner.inflight.borrow_mut().insert(packet_id) {
+                if !in_inflights_add(self.inner.inflight.borrow_mut().deref_mut(), packet_id) {
                     log::trace!("Duplicated packet id for unsubscribe packet: {:?}", packet_id);
                     return Either::Right(Either::Left(Ready::Err(MqttError::V3ProtocolError)));
                 }
@@ -276,7 +284,8 @@ where
             PublishResult::PublishAck(Some(packet_id), qos) => {
                 match qos {
                     codec::QoS::AtLeastOnce => {
-                        this.inner.inflight.borrow_mut().remove(packet_id);
+                        //this.inner.inflight.borrow_mut().remove(packet_id);
+                        in_inflights_remove(this.inner.inflight.borrow_mut().deref_mut(), packet_id);
                         Poll::Ready(Ok(Some(codec::Packet::PublishAck {
                             packet_id: *packet_id,
                         })))
@@ -333,14 +342,16 @@ where
             Poll::Ready(item) => match item.result {
                 ControlResultKind::Ping => Some(codec::Packet::PingResponse),
                 ControlResultKind::Subscribe(res) => {
-                    this.inner.inflight.borrow_mut().remove(&res.packet_id);
+                    //this.inner.inflight.borrow_mut().remove(&res.packet_id);
+                    in_inflights_remove(this.inner.inflight.borrow_mut().deref_mut(), &res.packet_id);
                     Some(codec::Packet::SubscribeAck {
                         status: res.codes,
                         packet_id: res.packet_id,
                     })
                 }
                 ControlResultKind::Unsubscribe(res) => {
-                    this.inner.inflight.borrow_mut().remove(&res.packet_id);
+                    //this.inner.inflight.borrow_mut().remove(&res.packet_id);
+                    in_inflights_remove(this.inner.inflight.borrow_mut().deref_mut(), &res.packet_id);
                     Some(codec::Packet::UnsubscribeAck { packet_id: res.packet_id })
                 }
                 ControlResultKind::Disconnect
