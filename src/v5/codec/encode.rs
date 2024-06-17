@@ -278,7 +278,7 @@ mod tests {
     use crate::types::{QoS, MAX_PACKET_SIZE};
 
     fn packet_id(v: u16) -> NonZeroU16 {
-        NonZeroU16::new(v).unwrap()
+        NonZeroU16::new(v).expect("")
     }
 
     #[test]
@@ -287,7 +287,7 @@ mod tests {
         let p = Packet::PingRequest;
 
         assert_eq!(p.encoded_size(MAX_PACKET_SIZE), 0);
-        p.encode(&mut v, 0).unwrap();
+        p.encode(&mut v, 0).expect("");
         assert_eq!(&v[..2], b"\xc0\x00".as_ref());
 
         v.clear();
@@ -303,13 +303,13 @@ mod tests {
         });
 
         assert_eq!(p.encoded_size(MAX_PACKET_SIZE), 265);
-        p.encode(&mut v, 265).unwrap();
+        p.encode(&mut v, 265).expect("");
         assert_eq!(&v[..3], b"\x3d\x89\x02".as_ref());
     }
 
     fn assert_encode_packet(packet: &Packet, expected: &[u8]) {
         let mut v = BytesMut::with_capacity(1024);
-        packet.encode(&mut v, packet.encoded_size(1024) as u32).unwrap();
+        packet.encode(&mut v, packet.encoded_size(1024) as u32).expect("");
         assert_eq!(expected.len(), v.len());
         assert_eq!(&expected[..], &v[..]);
     }

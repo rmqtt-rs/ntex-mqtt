@@ -180,7 +180,7 @@ impl ops::DerefMut for Topic {
 #[macro_export]
 macro_rules! topic {
     ($s:expr) => {
-        $s.parse::<Topic>().unwrap()
+        $s.parse::<Topic>()
     };
 }
 
@@ -336,8 +336,8 @@ mod tests {
         assert_eq!(Level::normal("sport").value(), Some("sport"));
         assert_eq!(Level::metadata("$SYS").value(), Some("$SYS"));
 
-        assert_eq!(Level::normal("sport"), "sport".parse().unwrap());
-        assert_eq!(Level::metadata("$SYS"), "$SYS".parse().unwrap());
+        assert_eq!(Level::normal("sport"), "sport".parse().expect(""));
+        assert_eq!(Level::metadata("$SYS"), "$SYS".parse().expect(""));
 
         assert!(Level::Normal(String::from("sport")).is_valid());
         assert!(Level::Metadata(String::from("$SYS")).is_valid());
@@ -446,7 +446,7 @@ mod tests {
         let t =
             vec![Level::SingleWildcard, Level::normal("tennis"), Level::MultiWildcard].into();
 
-        assert_eq!(v.write_topic(&t).unwrap(), 10);
+        assert_eq!(v.write_topic(&t).expect(""), 10);
         assert_eq!(v, b"+/tennis/#");
 
         assert_eq!(format!("{}", t), "+/tennis/#");
@@ -458,34 +458,36 @@ mod tests {
         assert!("test".match_level(&Level::normal("test")));
         assert!("$SYS".match_level(&Level::metadata("$SYS")));
 
-        let t: Topic = "sport/tennis/player1/#".parse().unwrap();
+        let t: Topic = "sport/tennis/player1/#".parse().expect("");
 
         assert!(t.matches_str("sport/tennis/player1"));
         assert!(t.matches_str("sport/tennis/player1/ranking"));
         assert!(t.matches_str("sport/tennis/player1/score/wimbledon"));
 
-        assert!(Topic::from_str("sport/#").unwrap().matches_str("sport"));
+        assert!(Topic::from_str("sport/#").expect("").matches_str("sport"));
 
-        let t: Topic = "sport/tennis/+".parse().unwrap();
+        let t: Topic = "sport/tennis/+".parse().expect("");
 
         assert!(t.matches_str("sport/tennis/player1"));
         assert!(t.matches_str("sport/tennis/player2"));
         assert!(!t.matches_str("sport/tennis/player1/ranking"));
 
-        let t: Topic = "sport/+".parse().unwrap();
+        let t: Topic = "sport/+".parse().expect("");
 
         assert!(!t.matches_str("sport"));
         assert!(t.matches_str("sport/"));
 
-        assert!(Topic::from_str("+/+").unwrap().matches_str("/finance"));
-        assert!(Topic::from_str("/+").unwrap().matches_str("/finance"));
-        assert!(!Topic::from_str("+").unwrap().matches_str("/finance"));
+        assert!(Topic::from_str("+/+").expect("").matches_str("/finance"));
+        assert!(Topic::from_str("/+").expect("").matches_str("/finance"));
+        assert!(!Topic::from_str("+").expect("").matches_str("/finance"));
 
-        assert!(!Topic::from_str("#").unwrap().matches_str("$SYS"));
+        assert!(!Topic::from_str("#").expect("").matches_str("$SYS"));
         assert!(!Topic::from_str("+/monitor/Clients")
-            .unwrap()
+            .expect("")
             .matches_str("$SYS/monitor/Clients"));
-        assert!(Topic::from_str(&"$SYS/#").unwrap().matches_str("$SYS/"));
-        assert!(Topic::from_str("$SYS/monitor/+").unwrap().matches_str("$SYS/monitor/Clients"));
+        assert!(Topic::from_str(&"$SYS/#").expect("").matches_str("$SYS/"));
+        assert!(Topic::from_str("$SYS/monitor/+")
+            .expect("")
+            .matches_str("$SYS/monitor/Clients"));
     }
 }

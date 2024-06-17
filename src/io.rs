@@ -366,8 +366,13 @@ where
                                 // optimize first call
                                 if this.response.is_none() {
                                     this.response.set(Some(this.service.call(item)));
-                                    let res =
-                                        this.response.as_mut().as_pin_mut().unwrap().poll(cx);
+                                    let res = if let Some(res_pin_mut) =
+                                        this.response.as_mut().as_pin_mut()
+                                    {
+                                        res_pin_mut.poll(cx)
+                                    } else {
+                                        unreachable!()
+                                    };
 
                                     let mut inner = this.inner.borrow_mut();
                                     let response_idx =
@@ -565,7 +570,7 @@ mod tests {
             let _ = disp.await;
         });
 
-        let buf = client.read().await.unwrap();
+        let buf = client.read().await.expect("");
         assert_eq!(buf, Bytes::from_static(b"GET /test HTTP/1\r\n\r\n"));
 
         client.close().await;
@@ -608,7 +613,7 @@ mod tests {
         sleep(time::Duration::from_millis(50)).await;
         condition.notify();
 
-        let buf = client.read().await.unwrap();
+        let buf = client.read().await.expect("");
         assert_eq!(buf, Bytes::from_static(b"testtesttest"));
 
         client.close().await;
@@ -638,11 +643,11 @@ mod tests {
             let _ = disp.disconnect_timeout(25).await;
         });
 
-        let buf = client.read().await.unwrap();
+        let buf = client.read().await.expect("");
         assert_eq!(buf, Bytes::from_static(b"GET /test HTTP/1\r\n\r\n"));
 
         assert!(st.write().encode(Bytes::from_static(b"test"), &BytesCodec).is_ok());
-        let buf = client.read().await.unwrap();
+        let buf = client.read().await.expect("");
         assert_eq!(buf, Bytes::from_static(b"test"));
 
         st.close();
@@ -672,11 +677,11 @@ mod tests {
         state
             .write()
             .encode(Bytes::from_static(b"GET /test HTTP/1\r\n\r\n"), &BytesCodec)
-            .unwrap();
+            .expect("");
 
         // buffer should be flushed
         client.remote_buffer_cap(1024);
-        let buf = client.read().await.unwrap();
+        let buf = client.read().await.expect("");
         assert_eq!(buf, Bytes::from_static(b"GET /test HTTP/1\r\n\r\n"));
 
         // write side must be closed, dispatcher waiting for read side to close

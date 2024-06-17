@@ -148,9 +148,9 @@ mod tests {
             packet_id: None,
             payload: Bytes::from(Vec::from("a".repeat(260 * 1024))),
         };
-        codec.encode(Packet::Publish(pkt.clone()), &mut buf).unwrap();
+        codec.encode(Packet::Publish(pkt.clone()), &mut buf).expect("");
 
-        let pkt2 = if let Packet::Publish(v) = codec.decode(&mut buf).unwrap().unwrap() {
+        let pkt2 = if let Packet::Publish(v) = codec.decode(&mut buf).expect("").expect("") {
             v
         } else {
             panic!()

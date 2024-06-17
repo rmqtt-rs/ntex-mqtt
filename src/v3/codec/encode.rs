@@ -230,7 +230,7 @@ mod tests {
     use crate::types::Protocol;
 
     fn packet_id(v: u16) -> NonZeroU16 {
-        NonZeroU16::new(v).unwrap()
+        NonZeroU16::new(v).expect("")
     }
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
         let p = Packet::PingRequest;
 
         assert_eq!(get_encoded_size(&p), 0);
-        encode(&p, &mut v, 0).unwrap();
+        encode(&p, &mut v, 0).expect("");
         assert_eq!(v, b"\xc0\x00".as_ref());
 
         v.clear();
@@ -254,13 +254,13 @@ mod tests {
         });
 
         assert_eq!(get_encoded_size(&p), 264);
-        encode(&p, &mut v, 264).unwrap();
+        encode(&p, &mut v, 264).expect("");
         assert_eq!(&v[0..3], b"\x3d\x88\x02".as_ref());
     }
 
     fn assert_encode_packet(packet: &Packet, expected: &[u8]) {
         let mut v = BytesMut::with_capacity(1024);
-        encode(packet, &mut v, get_encoded_size(packet) as u32).unwrap();
+        encode(packet, &mut v, get_encoded_size(packet) as u32).expect("");
         assert_eq!(expected.len(), v.len());
         assert_eq!(&expected[..], &v[..]);
     }

@@ -71,7 +71,7 @@ impl PublishAck {
 impl Default for PublishAck {
     fn default() -> Self {
         Self {
-            packet_id: NonZeroU16::new(1).unwrap(),
+            packet_id: NonZeroU16::new(1).expect("unreachable"),
             reason_code: PublishAckReason::Success,
             properties: UserProperties::default(),
             reason_string: None,

@@ -183,14 +183,14 @@ mod tests {
     macro_rules! assert_decode_packet (
         ($bytes:expr, $res:expr) => {{
             let first_byte = $bytes.as_ref()[0];
-            let (_len, consumed) = decode_variable_length(&$bytes[1..]).unwrap().unwrap();
+            let (_len, consumed) = decode_variable_length(&$bytes[1..]).expect("").expect("");
             let cur = Bytes::from_static(&$bytes[consumed + 1..]);
             assert_eq!(decode_packet(cur, first_byte), Ok($res));
         }};
     );
 
     fn packet_id(v: u16) -> NonZeroU16 {
-        NonZeroU16::new(v).unwrap()
+        NonZeroU16::new(v).expect("")
     }
 
     #[test]
@@ -203,9 +203,9 @@ mod tests {
                 protocol: Protocol::MQTT(MQTT_LEVEL_311),
                 clean_session: false,
                 keep_alive: 60,
-                client_id: ByteString::try_from(Bytes::from_static(b"12345")).unwrap(),
+                client_id: ByteString::try_from(Bytes::from_static(b"12345")).expect(""),
                 last_will: None,
-                username: Some(ByteString::try_from(Bytes::from_static(b"user")).unwrap()),
+                username: Some(ByteString::try_from(Bytes::from_static(b"user")).expect("")),
                 password: Some(Bytes::from(&b"pass"[..])),
             }))
         );
@@ -218,11 +218,11 @@ mod tests {
                 protocol: Protocol::MQTT(MQTT_LEVEL_311),
                 clean_session: false,
                 keep_alive: 60,
-                client_id: ByteString::try_from(Bytes::from_static(b"12345")).unwrap(),
+                client_id: ByteString::try_from(Bytes::from_static(b"12345")).expect(""),
                 last_will: Some(LastWill {
                     qos: QoS::ExactlyOnce,
                     retain: false,
-                    topic: ByteString::try_from(Bytes::from_static(b"topic")).unwrap(),
+                    topic: ByteString::try_from(Bytes::from_static(b"topic")).expect(""),
                     message: Bytes::from(&b"message"[..]),
                 }),
                 username: None,
@@ -292,7 +292,7 @@ mod tests {
                 dup: true,
                 retain: true,
                 qos: QoS::ExactlyOnce,
-                topic: ByteString::try_from(Bytes::from_static(b"topic")).unwrap(),
+                topic: ByteString::try_from(Bytes::from_static(b"topic")).expect(""),
                 packet_id: Some(packet_id(0x4321)),
                 payload: Bytes::from_static(b"data"),
             })
@@ -303,7 +303,7 @@ mod tests {
                 dup: false,
                 retain: false,
                 qos: QoS::AtMostOnce,
-                topic: ByteString::try_from(Bytes::from_static(b"topic")).unwrap(),
+                topic: ByteString::try_from(Bytes::from_static(b"topic")).expect(""),
                 packet_id: None,
                 payload: Bytes::from_static(b"data"),
             })
@@ -332,9 +332,12 @@ mod tests {
         let p = Packet::Subscribe {
             packet_id: packet_id(0x1234),
             topic_filters: vec![
-                (ByteString::try_from(Bytes::from_static(b"test")).unwrap(), QoS::AtLeastOnce),
                 (
-                    ByteString::try_from(Bytes::from_static(b"filter")).unwrap(),
+                    ByteString::try_from(Bytes::from_static(b"test")).expect(""),
+                    QoS::AtLeastOnce,
+                ),
+                (
+                    ByteString::try_from(Bytes::from_static(b"filter")).expect(""),
                     QoS::ExactlyOnce,
                 ),
             ],
@@ -366,8 +369,8 @@ mod tests {
         let p = Packet::Unsubscribe {
             packet_id: packet_id(0x1234),
             topic_filters: vec![
-                ByteString::try_from(Bytes::from_static(b"test")).unwrap(),
-                ByteString::try_from(Bytes::from_static(b"filter")).unwrap(),
+                ByteString::try_from(Bytes::from_static(b"test")).expect(""),
+                ByteString::try_from(Bytes::from_static(b"filter")).expect(""),
             ],
         };
 

@@ -1,11 +1,11 @@
+use std::num::NonZeroU16;
 use std::task::{Context, Poll};
 use std::{convert::TryFrom, fmt, future::Future, io, marker, pin::Pin, rc::Rc, time};
-use std::num::NonZeroU16;
 
 use ntex::codec::{AsyncRead, AsyncWrite};
 use ntex::rt::time::{sleep, Sleep};
 use ntex::service::{Service, ServiceFactory};
-use ntex::util::{HashSet, join, Ready};
+use ntex::util::{join, HashSet, Ready};
 
 use crate::error::{MqttError, ProtocolError};
 use crate::io::State;
@@ -351,7 +351,7 @@ where
                 MqttServerImplStateProject::V3 { fut } => return fut.poll(cx),
                 MqttServerImplStateProject::V5 { fut } => return fut.poll(cx),
                 MqttServerImplStateProject::Version { ref mut item } => {
-                    if let Some(ref mut delay) = item.as_mut().unwrap().4 {
+                    if let Some(ref mut delay) = item.as_mut().and_then(|i| i.4.as_mut()) {
                         match Pin::new(delay).poll(cx) {
                             Poll::Pending => (),
                             Poll::Ready(_) => {
@@ -360,25 +360,31 @@ where
                         }
                     };
 
-                    let st = item.as_mut().unwrap();
+                    let st = match item.as_mut() {
+                        Some(st) => st,
+                        None => return Poll::Ready(Err(MqttError::Disconnected)),
+                    };
 
                     match st.1.poll_next(&mut st.0, &st.2, cx) {
                         Poll::Ready(Ok(Some(ver))) => {
-                            let (io, state, _, handlers, delay) = item.take().unwrap();
-                            this = self.as_mut().project();
-                            match ver {
-                                ProtocolVersion::MQTT3 => {
-                                    this.state.set(MqttServerImplState::V3 {
-                                        fut: handlers.0.call((io, state, delay)),
-                                    })
+                            if let Some((io, state, _, handlers, delay)) = item.take() {
+                                this = self.as_mut().project();
+                                match ver {
+                                    ProtocolVersion::MQTT3 => {
+                                        this.state.set(MqttServerImplState::V3 {
+                                            fut: handlers.0.call((io, state, delay)),
+                                        })
+                                    }
+                                    ProtocolVersion::MQTT5 => {
+                                        this.state.set(MqttServerImplState::V5 {
+                                            fut: handlers.1.call((io, state, delay)),
+                                        })
+                                    }
                                 }
-                                ProtocolVersion::MQTT5 => {
-                                    this.state.set(MqttServerImplState::V5 {
-                                        fut: handlers.1.call((io, state, delay)),
-                                    })
-                                }
+                                continue;
+                            } else {
+                                return Poll::Ready(Err(MqttError::Disconnected));
                             }
-                            continue;
                         }
                         Poll::Ready(Ok(None)) => {
                             return Poll::Ready(Err(MqttError::Disconnected))
@@ -435,8 +441,8 @@ impl<Io, Err, InitErr> Service for DefaultProtocolServer<Io, Err, InitErr> {
     }
 }
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::Arc;
 lazy_static::lazy_static!(
     pub static ref HANDSHAKINGS: Arc<AtomicIsize> = Arc::new(AtomicIsize::new(0));
 );
@@ -466,17 +472,20 @@ pub(crate) fn in_inflights_add(inflight: &mut HashSet<NonZeroU16>, pid: NonZeroU
         let prev = IN_INFLIGHTS.0.fetch_add(1, Ordering::SeqCst);
         IN_INFLIGHTS.1.fetch_max(prev + 1, Ordering::SeqCst);
         true
-    }else {
+    } else {
         false
     }
 }
 
 #[inline]
-pub(crate) fn in_inflights_remove(inflight: &mut HashSet<NonZeroU16>, pid: &NonZeroU16) -> bool {
+pub(crate) fn in_inflights_remove(
+    inflight: &mut HashSet<NonZeroU16>,
+    pid: &NonZeroU16,
+) -> bool {
     if inflight.remove(pid) {
         IN_INFLIGHTS.0.fetch_sub(1, Ordering::SeqCst);
         true
-    }else{
+    } else {
         false
     }
 }

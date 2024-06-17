@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
+use std::ops::DerefMut;
 use std::task::{Context, Poll};
 use std::{future::Future, marker::PhantomData, num::NonZeroU16, pin::Pin, rc::Rc};
-use std::ops::DerefMut;
 
 use ntex::service::{fn_factory_with_config, Service, ServiceFactory};
 use ntex::util::{inflight::InFlightService, join, Either, HashSet, Ready};
@@ -60,11 +60,7 @@ where
                 // limit number of in-flight messages
                 InFlightService::new(
                     inflight,
-                    Dispatcher::<_, _, _, E>::new(
-                        cfg,
-                        publish?,
-                        control?,
-                    ),
+                    Dispatcher::<_, _, _, E>::new(cfg, publish?, control?),
                 ),
             )
         }
@@ -90,25 +86,16 @@ where
     T: Service<Request = PublishMessage, Response = (), Error = MqttError<E>>,
     C: Service<Request = ControlMessage, Response = ControlResult, Error = MqttError<E>>,
 {
-    pub(crate) fn new(
-        session: Session<St>,
-        publish: T,
-        control: C,
-    ) -> Self {
+    pub(crate) fn new(session: Session<St>, publish: T, control: C) -> Self {
         let sink = session.sink().clone();
         Self {
             session,
             publish,
             control,
             shutdown: Cell::new(false),
-            inner: Rc::new(Inner {
-                sink,
-                inflight: RefCell::new(HashSet::default()),
-            }),
+            inner: Rc::new(Inner { sink, inflight: RefCell::new(HashSet::default()) }),
         }
     }
-
-
 }
 
 impl<St, T, C, E> Service for Dispatcher<St, T, C, E>
@@ -285,7 +272,10 @@ where
                 match qos {
                     codec::QoS::AtLeastOnce => {
                         //this.inner.inflight.borrow_mut().remove(packet_id);
-                        in_inflights_remove(this.inner.inflight.borrow_mut().deref_mut(), packet_id);
+                        in_inflights_remove(
+                            this.inner.inflight.borrow_mut().deref_mut(),
+                            packet_id,
+                        );
                         Poll::Ready(Ok(Some(codec::Packet::PublishAck {
                             packet_id: *packet_id,
                         })))
@@ -343,7 +333,10 @@ where
                 ControlResultKind::Ping => Some(codec::Packet::PingResponse),
                 ControlResultKind::Subscribe(res) => {
                     //this.inner.inflight.borrow_mut().remove(&res.packet_id);
-                    in_inflights_remove(this.inner.inflight.borrow_mut().deref_mut(), &res.packet_id);
+                    in_inflights_remove(
+                        this.inner.inflight.borrow_mut().deref_mut(),
+                        &res.packet_id,
+                    );
                     Some(codec::Packet::SubscribeAck {
                         status: res.codes,
                         packet_id: res.packet_id,
@@ -351,7 +344,10 @@ where
                 }
                 ControlResultKind::Unsubscribe(res) => {
                     //this.inner.inflight.borrow_mut().remove(&res.packet_id);
-                    in_inflights_remove(this.inner.inflight.borrow_mut().deref_mut(), &res.packet_id);
+                    in_inflights_remove(
+                        this.inner.inflight.borrow_mut().deref_mut(),
+                        &res.packet_id,
+                    );
                     Some(codec::Packet::UnsubscribeAck { packet_id: res.packet_id })
                 }
                 ControlResultKind::Disconnect
@@ -360,7 +356,11 @@ where
                     this.inner.sink.close();
                     None
                 }
-                ControlResultKind::PublishAck(_) => unreachable!(),
+                ControlResultKind::PublishAck(_) => {
+                    log::warn!("ControlResultKind::PublishAck unreachable!()");
+                    return Poll::Ready(Err(MqttError::Disconnected));
+                    //unreachable!()
+                }
             },
             Poll::Pending => return Poll::Pending,
         };

@@ -322,7 +322,8 @@ impl SubscribeBuilder {
 
             match shared.state.write().encode(
                 codec::Packet::Subscribe {
-                    packet_id: NonZeroU16::new(idx).unwrap(),
+                    packet_id: NonZeroU16::new(idx)
+                        .ok_or_else(|| SendPacketError::PacketIdInUse(idx))?,
                     topic_filters: filters,
                 },
                 &shared.codec,
@@ -403,7 +404,8 @@ impl UnsubscribeBuilder {
 
             match shared.state.write().encode(
                 codec::Packet::Unsubscribe {
-                    packet_id: NonZeroU16::new(idx).unwrap(),
+                    packet_id: NonZeroU16::new(idx)
+                        .ok_or_else(|| SendPacketError::PacketIdInUse(idx))?,
                     topic_filters: filters,
                 },
                 &shared.codec,

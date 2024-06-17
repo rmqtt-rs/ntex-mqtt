@@ -64,7 +64,7 @@ impl<Io> Handshake<Io> {
             packet.max_packet_size = Some(self.max_size);
         }
         if self.max_receive != 0 {
-            packet.receive_max = Some(NonZeroU16::new(self.max_receive).unwrap());
+            packet.receive_max = NonZeroU16::new(self.max_receive);
         }
 
         HandshakeAck {

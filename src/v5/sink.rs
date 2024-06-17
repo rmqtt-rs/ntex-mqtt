@@ -1,5 +1,6 @@
 use std::{fmt, future::Future, num::NonZeroU16, num::NonZeroU32, rc::Rc};
 
+use crate::error::EncodeError;
 use ntex::util::{ByteString, Bytes, Either};
 
 use super::codec;
@@ -178,7 +179,7 @@ impl MqttSink {
             id: 0,
             packet: codec::Subscribe {
                 id,
-                packet_id: NonZeroU16::new(1).unwrap(),
+                packet_id: NonZeroU16::new(1).expect("unreachable!"),
                 user_properties: Vec::new(),
                 topic_filters: Vec::new(),
             },
@@ -191,7 +192,7 @@ impl MqttSink {
         UnsubscribeBuilder {
             id: 0,
             packet: codec::Unsubscribe {
-                packet_id: NonZeroU16::new(1).unwrap(),
+                packet_id: NonZeroU16::new(1).expect("unreachable!"),
                 user_properties: Vec::new(),
                 topic_filters: Vec::new(),
             },
@@ -394,7 +395,8 @@ impl SubscribeBuilder {
             }
             queues.inflight.insert(idx, (tx, AckType::Subscribe));
             queues.inflight_order.push_back(idx);
-            packet.packet_id = NonZeroU16::new(idx).unwrap();
+            packet.packet_id = NonZeroU16::new(idx)
+                .ok_or_else(|| SendPacketError::Encode(EncodeError::PacketIdRequired))?;
 
             // send subscribe to client
             log::trace!("Sending subscribe packet {:#?}", packet);
@@ -476,7 +478,8 @@ impl UnsubscribeBuilder {
             }
             queues.inflight.insert(idx, (tx, AckType::Unsubscribe));
             queues.inflight_order.push_back(idx);
-            packet.packet_id = NonZeroU16::new(idx).unwrap();
+            packet.packet_id = NonZeroU16::new(idx)
+                .ok_or_else(|| SendPacketError::Encode(EncodeError::PacketIdRequired))?;
 
             // send unsubscribe to client
             log::trace!("Sending unsubscribe packet {:#?}", packet);

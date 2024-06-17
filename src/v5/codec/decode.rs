@@ -47,13 +47,13 @@ mod tests {
     use crate::v5::codec::*;
 
     fn packet_id(v: u16) -> NonZeroU16 {
-        NonZeroU16::new(v).unwrap()
+        NonZeroU16::new(v).expect("")
     }
 
     fn assert_decode_packet<B: AsRef<[u8]>>(bytes: B, res: Packet) {
         let bytes = bytes.as_ref();
         let fixed = bytes[0];
-        let (_len, consumed) = decode_variable_length(&bytes[1..]).unwrap().unwrap();
+        let (_len, consumed) = decode_variable_length(&bytes[1..]).expect("").expect("");
         let cur = Bytes::copy_from_slice(&bytes[consumed + 1..]);
         let mut tmp = BytesMut::with_capacity(4096);
         ntex::codec::Encoder::encode(
@@ -61,7 +61,7 @@ mod tests {
             res.clone(),
             &mut tmp,
         )
-        .unwrap();
+        .expect("");
         let decoded = decode_packet(cur, fixed);
         let res = Ok(res);
         if decoded != res {
@@ -314,7 +314,7 @@ mod tests {
                 Unsubscribe::decode(&mut Bytes::from_static(
                     b"\x12\x34\x00\x00\x04test\x00\x06filter"
                 ))
-                .unwrap()
+                .expect("unreachable!")
             ),
             p.clone()
         );
