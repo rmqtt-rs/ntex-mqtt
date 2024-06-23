@@ -35,7 +35,7 @@ impl fmt::Debug for Publish {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct PublishProperties {
     pub topic_alias: Option<NonZeroU16>,
     pub correlation_data: Option<Bytes>,
@@ -45,21 +45,6 @@ pub struct PublishProperties {
     pub is_utf8_payload: Option<bool>,
     pub response_topic: Option<ByteString>,
     pub subscription_ids: Option<Vec<NonZeroU32>>,
-}
-
-impl Default for PublishProperties {
-    fn default() -> Self {
-        Self {
-            topic_alias: None,
-            correlation_data: None,
-            message_expiry_interval: None,
-            content_type: None,
-            user_properties: Vec::new(),
-            is_utf8_payload: None,
-            response_topic: None,
-            subscription_ids: None,
-        }
-    }
 }
 
 impl Publish {
@@ -165,8 +150,8 @@ impl EncodeLtd for PublishProperties {
             + encoded_property_size(&self.is_utf8_payload)
             + encoded_property_size(&self.response_topic)
             + self.subscription_ids.as_ref().map_or(0, |v| {
-            v.iter().fold(0, |acc, id| acc + 1 + var_int_len(id.get() as usize) as usize)
-        })
+                v.iter().fold(0, |acc, id| acc + 1 + var_int_len(id.get() as usize) as usize)
+            })
             + self.user_properties.encoded_size();
         prop_len + var_int_len(prop_len) as usize
     }

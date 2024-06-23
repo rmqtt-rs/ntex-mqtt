@@ -33,7 +33,7 @@ where
         > + 'static,
     C: Service<Request = ControlMessage<E>, Response = ControlResult, Error = E> + 'static,
 {
-    Dispatcher::<_, _, E>::new(sink, max_receive as usize, max_topic_alias, publish, control)
+    Dispatcher::<_, _, E>::new(sink, max_receive, max_topic_alias, publish, control)
 }
 
 /// Mqtt protocol dispatcher
