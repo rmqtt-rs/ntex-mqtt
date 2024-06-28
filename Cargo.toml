@@ -14,7 +14,7 @@ edition = "2021"
 [dependencies]
 ntex = { git = "https://github.com/diablur/ntex.git", branch = "0.3.22.rustls-0.23" }
 #ntex = { path = "../ntex/ntex" }
-bitflags = "2.5"
+bitflags = "2.6"
 derive_more = "0.99"
 log = "0.4"
 serde = "1.0"

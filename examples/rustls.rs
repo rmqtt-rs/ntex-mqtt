@@ -1,11 +1,11 @@
-use std::{fs::File, io::BufReader, marker, time};
+use std::{fs::File, io::BufReader};
 
+use ntex::pipeline_factory;
 use ntex::rt::net::TcpStream;
 use ntex::server::rustls::Acceptor;
-use ntex::{fn_factory_with_config, fn_service, pipeline_factory, ServiceFactory};
 use ntex_mqtt::{v3, v5, MqttError, MqttServer};
 use rustls::ServerConfig;
-use rustls_pemfile::{certs, rsa_private_keys};
+use rustls_pemfile::certs;
 use tokio_rustls::server::TlsStream;
 
 #[derive(Clone)]
