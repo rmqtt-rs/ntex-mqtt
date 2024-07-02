@@ -243,7 +243,7 @@ where
             log::trace!("Connection handler is created, starting dispatcher");
 
             Dispatcher::with(io, st, codec, handler, time)
-                .keepalive_timeout(keepalive as u16)
+                .keepalive_timeout(keepalive)
                 .disconnect_timeout(timeout)
                 .await
         })
@@ -520,7 +520,7 @@ where
             };
 
             Dispatcher::with(io, state, codec, handler, time)
-                .keepalive_timeout(ka as u16)
+                .keepalive_timeout(ka)
                 .disconnect_timeout(timeout)
                 .await
         })

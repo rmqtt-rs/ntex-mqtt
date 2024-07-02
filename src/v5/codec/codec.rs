@@ -17,6 +17,7 @@ pub struct Codec {
 }
 
 bitflags::bitflags! {
+    #[derive(Debug, Copy, Clone)]
     pub struct CodecFlags: u8 {
         const NO_PROBLEM_INFO = 0b0000_0001;
     }

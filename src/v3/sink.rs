@@ -42,7 +42,7 @@ impl MqttSink {
     /// Close mqtt connection
     pub fn close(&self) {
         if self.0.state.is_open() {
-            let _ = self.0.state.close();
+            self.0.state.close();
         }
         let mut queues = self.0.queues.borrow_mut();
         queues.inflight.clear();
@@ -53,7 +53,7 @@ impl MqttSink {
     /// responses, but it flushes buffers.
     pub fn force_close(&self) {
         if self.0.state.is_open() {
-            let _ = self.0.state.force_close();
+            self.0.state.force_close();
         }
         let mut queues = self.0.queues.borrow_mut();
         queues.inflight.clear();
@@ -323,7 +323,7 @@ impl SubscribeBuilder {
             match shared.state.write().encode(
                 codec::Packet::Subscribe {
                     packet_id: NonZeroU16::new(idx)
-                        .ok_or_else(|| SendPacketError::PacketIdInUse(idx))?,
+                        .ok_or(SendPacketError::PacketIdInUse(idx))?,
                     topic_filters: filters,
                 },
                 &shared.codec,
@@ -405,7 +405,7 @@ impl UnsubscribeBuilder {
             match shared.state.write().encode(
                 codec::Packet::Unsubscribe {
                     packet_id: NonZeroU16::new(idx)
-                        .ok_or_else(|| SendPacketError::PacketIdInUse(idx))?,
+                        .ok_or(SendPacketError::PacketIdInUse(idx))?,
                     topic_filters: filters,
                 },
                 &shared.codec,

@@ -6,6 +6,7 @@ use ntex::codec::{AsyncRead, AsyncWrite};
 use ntex::rt::time::{sleep, Sleep};
 use ntex::service::{Service, ServiceFactory};
 use ntex::util::{join, HashSet, Ready};
+use once_cell::sync::Lazy;
 
 use crate::error::{MqttError, ProtocolError};
 use crate::io::State;
@@ -443,9 +444,8 @@ impl<Io, Err, InitErr> Service for DefaultProtocolServer<Io, Err, InitErr> {
 
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
-lazy_static::lazy_static!(
-    pub static ref HANDSHAKINGS: Arc<AtomicIsize> = Arc::new(AtomicIsize::new(0));
-);
+
+static HANDSHAKINGS: Lazy<Arc<AtomicIsize>> = Lazy::new(|| Arc::new(AtomicIsize::new(0)));
 
 #[inline]
 pub fn handshakings() -> isize {
@@ -457,9 +457,8 @@ pub fn handshakings_add(v: isize) -> isize {
     HANDSHAKINGS.fetch_add(v, Ordering::SeqCst)
 }
 
-lazy_static::lazy_static!(
-    pub static ref IN_INFLIGHTS: Arc<(AtomicIsize, AtomicIsize)> = Arc::new((AtomicIsize::new(0), AtomicIsize::new(0)));
-);
+static IN_INFLIGHTS: Lazy<Arc<(AtomicIsize, AtomicIsize)>> =
+    Lazy::new(|| Arc::new((AtomicIsize::new(0), AtomicIsize::new(0))));
 
 #[inline]
 pub fn in_inflights() -> (isize, isize) {

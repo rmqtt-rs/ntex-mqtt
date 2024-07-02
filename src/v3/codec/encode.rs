@@ -49,7 +49,7 @@ pub(crate) fn get_encoded_size(packet: &Packet) -> usize {
         Packet::PublishComplete { .. } | // Packet Id
         Packet::UnsubscribeAck { .. } => 2, // Packet Id
         Packet::Subscribe { ref topic_filters, .. } => {
-            2 + topic_filters.iter().fold(0, |acc, &(ref filter, _)| acc + 2 + filter.len() + 1)
+            2 + topic_filters.iter().fold(0, |acc, (filter, _)| acc + 2 + filter.len() + 1)
         }
 
         Packet::SubscribeAck { ref status, .. } => 2 + status.len(),

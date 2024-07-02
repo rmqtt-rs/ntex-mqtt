@@ -159,7 +159,7 @@ where
     /// Handshake includes `connect` packet and response `connect-ack`.
     /// By default handshake timeuot is disabled.
     pub fn handshake_timeout(mut self, timeout: u16) -> Self {
-        self.handshake_timeout = timeout as u16;
+        self.handshake_timeout = timeout;
         self
     }
 
@@ -172,7 +172,7 @@ where
     ///
     /// By default disconnect timeout is set to 3 seconds.
     pub fn disconnect_timeout(mut self, timeout: u16) -> Self {
-        self.disconnect_timeout = timeout as u16;
+        self.disconnect_timeout = timeout;
         self
     }
 

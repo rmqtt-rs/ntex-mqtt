@@ -28,16 +28,16 @@ where
     /// Create mqtt application router.
     ///
     /// Default service to be used if no matching resource could be found.
-    pub fn new<F, U: 'static>(default_service: F) -> Self
+    pub fn new<F, U>(default_service: F) -> Self
     where
         F: IntoServiceFactory<U>,
         U: ServiceFactory<
-            Config = S,
-            Request = Publish,
-            Response = PublishAck,
-            Error = Err,
-            InitError = Err,
-        >,
+                Config = S,
+                Request = Publish,
+                Response = PublishAck,
+                Error = Err,
+                InitError = Err,
+            > + 'static,
     {
         Router {
             router: ntex::router::Router::build(),
@@ -47,11 +47,12 @@ where
     }
 
     /// Configure mqtt resource for a specific topic.
-    pub fn resource<T, F, U: 'static>(mut self, address: T, service: F) -> Self
+    pub fn resource<T, F, U>(mut self, address: T, service: F) -> Self
     where
         T: IntoPattern,
         F: IntoServiceFactory<U>,
-        U: ServiceFactory<Config = S, Request = Publish, Response = PublishAck, Error = Err>,
+        U: ServiceFactory<Config = S, Request = Publish, Response = PublishAck, Error = Err>
+            + 'static,
         Err: From<U::InitError>,
     {
         self.router.path(address, self.handlers.len());

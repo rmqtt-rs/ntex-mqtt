@@ -63,6 +63,7 @@ prim_enum! {
 }
 
 bitflags::bitflags! {
+    #[derive(Debug, Copy, Clone)]
     pub struct ConnectFlags: u8 {
         const USERNAME    = 0b1000_0000;
         const PASSWORD    = 0b0100_0000;

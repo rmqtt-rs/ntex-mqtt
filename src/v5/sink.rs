@@ -396,7 +396,7 @@ impl SubscribeBuilder {
             queues.inflight.insert(idx, (tx, AckType::Subscribe));
             queues.inflight_order.push_back(idx);
             packet.packet_id = NonZeroU16::new(idx)
-                .ok_or_else(|| SendPacketError::Encode(EncodeError::PacketIdRequired))?;
+                .ok_or(SendPacketError::Encode(EncodeError::PacketIdRequired))?;
 
             // send subscribe to client
             log::trace!("Sending subscribe packet {:#?}", packet);
@@ -479,7 +479,7 @@ impl UnsubscribeBuilder {
             queues.inflight.insert(idx, (tx, AckType::Unsubscribe));
             queues.inflight_order.push_back(idx);
             packet.packet_id = NonZeroU16::new(idx)
-                .ok_or_else(|| SendPacketError::Encode(EncodeError::PacketIdRequired))?;
+                .ok_or(SendPacketError::Encode(EncodeError::PacketIdRequired))?;
 
             // send unsubscribe to client
             log::trace!("Sending unsubscribe packet {:#?}", packet);
