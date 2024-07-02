@@ -12,7 +12,7 @@ exclude = [".gitignore", ".travis.yml", ".cargo/config"]
 edition = "2021"
 
 [dependencies]
-ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.3.22" }
+ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.4.0" }
 #ntex = { path = "../ntex/ntex" }
 bitflags = "2.6"
 derive_more = "0.99"
@@ -33,6 +33,6 @@ rustls = "0.23"
 tokio-rustls = "0.26"
 #openssl = "0.10"
 #tokio-openssl = "0.6"
-ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.3.22", features = ["rustls"] }
+ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.4.0", features = ["rustls"] }
 #ntex = { path = "../ntex/ntex" }
 rustls-pemfile = "2"
