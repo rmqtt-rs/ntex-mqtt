@@ -294,6 +294,7 @@ impl fmt::Display for Topic {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) trait WriteTopicExt: io::Write {
     fn write_level(&mut self, level: &Level) -> io::Result<usize> {
         match *level {

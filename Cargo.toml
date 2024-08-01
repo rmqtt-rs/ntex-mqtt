@@ -1,6 +1,6 @@
 [package]
 name = "ntex-mqtt"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["ntex contributors <team@ntex.rs>"]
 description = "MQTT Client/Server framework for v5 and v3.1.1,v3.1 protocols"
 documentation = "https://docs.rs/ntex-mqtt"
@@ -12,7 +12,7 @@ exclude = [".gitignore", ".travis.yml", ".cargo/config"]
 edition = "2021"
 
 [dependencies]
-ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.4.0" }
+ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.4.1" }
 #ntex = { path = "../ntex/ntex" }
 bitflags = "2.6"
 derive_more = "0.99"
@@ -29,10 +29,10 @@ once_cell = "1.19"
 tokio-tungstenite = { version = "0.23" }
 env_logger = "0.11"
 futures = "0.3"
-rustls = "0.23"
-tokio-rustls = "0.26"
+#tokio-rustls = "0.26"
+#rustls = "0.23"
 #openssl = "0.10"
 #tokio-openssl = "0.6"
-ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.4.0", features = ["rustls"] }
+ntex = { git = "https://github.com/rmqtt/ntex.git", branch = "0.4.1", features = ["rustls"] }
 #ntex = { path = "../ntex/ntex" }
 rustls-pemfile = "2"
