@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::num::NonZeroU16;
 use std::task::{Context, Poll};
 use std::{convert::TryFrom, fmt, future::Future, io, marker, pin::Pin, rc::Rc, time};
@@ -5,7 +6,7 @@ use std::{convert::TryFrom, fmt, future::Future, io, marker, pin::Pin, rc::Rc, t
 use ntex::codec::{AsyncRead, AsyncWrite};
 use ntex::rt::time::{sleep, Sleep};
 use ntex::service::{Service, ServiceFactory};
-use ntex::util::{join, HashSet, Ready};
+use ntex::util::{join, Ready};
 use once_cell::sync::Lazy;
 
 use crate::error::{MqttError, ProtocolError};
@@ -466,7 +467,12 @@ pub fn in_inflights() -> (isize, isize) {
 }
 
 #[inline]
-pub(crate) fn in_inflights_add(inflight: &mut HashSet<NonZeroU16>, pid: NonZeroU16) -> bool {
+pub(crate) fn in_inflights_clear(inflights: &BTreeSet<NonZeroU16>) {
+    IN_INFLIGHTS.0.fetch_sub(inflights.len() as isize, Ordering::SeqCst);
+}
+
+#[inline]
+pub(crate) fn in_inflights_add(inflight: &mut BTreeSet<NonZeroU16>, pid: NonZeroU16) -> bool {
     if inflight.insert(pid) {
         let prev = IN_INFLIGHTS.0.fetch_add(1, Ordering::SeqCst);
         IN_INFLIGHTS.1.fetch_max(prev + 1, Ordering::SeqCst);
@@ -478,7 +484,7 @@ pub(crate) fn in_inflights_add(inflight: &mut HashSet<NonZeroU16>, pid: NonZeroU
 
 #[inline]
 pub(crate) fn in_inflights_remove(
-    inflight: &mut HashSet<NonZeroU16>,
+    inflight: &mut BTreeSet<NonZeroU16>,
     pid: &NonZeroU16,
 ) -> bool {
     if inflight.remove(pid) {

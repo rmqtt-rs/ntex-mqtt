@@ -1,13 +1,14 @@
 use std::cell::{Cell, RefCell};
+use std::collections::BTreeSet;
 use std::task::{Context, Poll};
 use std::{convert::TryFrom, future::Future, marker, num, num::NonZeroU16, pin::Pin, rc::Rc};
 
 use ntex::service::{fn_factory_with_config, Service, ServiceFactory};
-use ntex::util::{join, Either, HashSet, Ready};
+use ntex::util::{join, Either, Ready};
 
 use crate::error::{MqttError, ProtocolError};
 use crate::io::DispatchItem;
-use crate::server::{in_inflights_add, in_inflights_remove};
+use crate::server::{in_inflights_add, in_inflights_clear, in_inflights_remove};
 
 use super::control::{self, ControlMessage, ControlResult};
 use super::publish::{Publish, PublishMessage, PublishResult};
@@ -81,8 +82,16 @@ struct Inner<C> {
 }
 
 struct PublishInfo {
-    inflight: HashSet<num::NonZeroU16>,
+    inflight: BTreeSet<num::NonZeroU16>,
     //aliases: HashSet<num::NonZeroU16>,
+}
+
+impl Drop for PublishInfo {
+    fn drop(&mut self) {
+        if !self.inflight.is_empty() {
+            in_inflights_clear(&self.inflight);
+        }
+    }
 }
 
 impl<T, C, E, E2> Dispatcher<T, C, E, E2>
@@ -91,12 +100,7 @@ where
     PublishResult: TryFrom<E2, Error = E>,
     C: Service<Request = ControlMessage<E>, Response = ControlResult, Error = E>,
 {
-    fn new(
-        sink: MqttSink,
-        max_receive: usize,
-        publish: T,
-        control: C,
-    ) -> Self {
+    fn new(sink: MqttSink, max_receive: usize, publish: T, control: C) -> Self {
         Self {
             publish,
             max_receive,
@@ -107,14 +111,12 @@ where
                 sink,
                 info: RefCell::new(PublishInfo {
                     //aliases: HashSet::default(),
-                    inflight: HashSet::default(),
+                    inflight: BTreeSet::default(),
                 }),
             }),
             _t: marker::PhantomData,
         }
     }
-
-
 }
 
 impl<T, C, E, E2> Service for Dispatcher<T, C, E, E2>
@@ -198,12 +200,11 @@ where
                                 codec::QoS::ExactlyOnce => {
                                     let _ = self.sink.send(codec::Packet::PublishReceived(ack));
                                 }
-                                _ => {},
+                                _ => {}
                             }
                             return Either::Right(Either::Left(Ready::Ok(None)));
                         }
                     }
-
                 }
 
                 Either::Left(PublishResponse {
@@ -237,7 +238,10 @@ where
 
             DispatchItem::Item(codec::Packet::PublishRelease(ack2)) => {
                 //self.inner.info.borrow_mut().inflight.remove(&ack2.packet_id);
-                in_inflights_remove(&mut self.inner.info.borrow_mut().inflight, &ack2.packet_id);
+                in_inflights_remove(
+                    &mut self.inner.info.borrow_mut().inflight,
+                    &ack2.packet_id,
+                );
                 Either::Right(Either::Left(Ready::Ok(Some(codec::Packet::PublishComplete(
                     ack2, //@TODO ...
                 )))))
@@ -283,7 +287,8 @@ where
             DispatchItem::Item(codec::Packet::Subscribe(pkt)) => {
                 // register inflight packet id
                 //if !self.inner.info.borrow_mut().inflight.insert(pkt.packet_id) {
-                if !in_inflights_add(&mut self.inner.info.borrow_mut().inflight, pkt.packet_id) {
+                if !in_inflights_add(&mut self.inner.info.borrow_mut().inflight, pkt.packet_id)
+                {
                     // duplicated packet id
                     let _ = self.sink.send(codec::Packet::SubscribeAck(codec::SubscribeAck {
                         packet_id: pkt.packet_id,
@@ -306,7 +311,8 @@ where
             DispatchItem::Item(codec::Packet::Unsubscribe(pkt)) => {
                 // register inflight packet id
                 //if !self.inner.info.borrow_mut().inflight.insert(pkt.packet_id) {
-                if !in_inflights_add(&mut self.inner.info.borrow_mut().inflight, pkt.packet_id) {
+                if !in_inflights_add(&mut self.inner.info.borrow_mut().inflight, pkt.packet_id)
+                {
                     // duplicated packet id
                     let _ =
                         self.sink.send(codec::Packet::UnsubscribeAck(codec::UnsubscribeAck {
@@ -432,7 +438,10 @@ where
                         match qos {
                             codec::QoS::AtLeastOnce => {
                                 //this.inner.info.borrow_mut().inflight.remove(&id);
-                                in_inflights_remove(&mut this.inner.info.borrow_mut().inflight, &id);
+                                in_inflights_remove(
+                                    &mut this.inner.info.borrow_mut().inflight,
+                                    &id,
+                                );
                                 Poll::Ready(Ok(Some(codec::Packet::PublishAck(ack))))
                             }
                             codec::QoS::ExactlyOnce => {
@@ -455,9 +464,7 @@ where
                 };
                 Poll::Ready(Ok(None))
             }
-            PublishResponseStateProject::Control { fut } => {
-                fut.poll(cx)
-            },
+            PublishResponseStateProject::Control { fut } => fut.poll(cx),
             PublishResponseStateProject::Release { packet_id, fut } => {
                 let _ = match fut.poll(cx) {
                     Poll::Ready(result) => result,

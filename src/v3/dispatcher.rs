@@ -1,10 +1,12 @@
 use std::cell::{Cell, RefCell};
+use std::collections::BTreeSet;
+use std::ops::Deref;
 use std::ops::DerefMut;
 use std::task::{Context, Poll};
 use std::{future::Future, marker::PhantomData, num::NonZeroU16, pin::Pin, rc::Rc};
 
 use ntex::service::{fn_factory_with_config, Service, ServiceFactory};
-use ntex::util::{inflight::InFlightService, join, Either, HashSet, Ready};
+use ntex::util::{inflight::InFlightService, join, Either, Ready};
 
 use super::control::{
     ControlMessage, ControlResult, ControlResultKind, Subscribe, Unsubscribe,
@@ -17,7 +19,7 @@ use super::{
     Session,
 };
 use crate::error::MqttError;
-use crate::server::{in_inflights_add, in_inflights_remove};
+use crate::server::{in_inflights_add, in_inflights_clear, in_inflights_remove};
 
 /// mqtt3 protocol dispatcher
 pub(super) fn factory<St, T, C, E>(
@@ -78,7 +80,17 @@ pub(crate) struct Dispatcher<St, T: Service<Error = MqttError<E>>, C, E> {
 
 struct Inner {
     sink: MqttSink,
-    inflight: RefCell<HashSet<NonZeroU16>>,
+    inflight: RefCell<BTreeSet<NonZeroU16>>,
+}
+
+impl Drop for Inner {
+    fn drop(&mut self) {
+        if let Ok(inflight) = self.inflight.try_borrow() {
+            if !inflight.is_empty() {
+                in_inflights_clear(inflight.deref());
+            }
+        }
+    }
 }
 
 impl<St, T, C, E> Dispatcher<St, T, C, E>
@@ -93,7 +105,7 @@ where
             publish,
             control,
             shutdown: Cell::new(false),
-            inner: Rc::new(Inner { sink, inflight: RefCell::new(HashSet::default()) }),
+            inner: Rc::new(Inner { sink, inflight: RefCell::new(BTreeSet::default()) }),
         }
     }
 }
